@@ -1,8 +1,4 @@
 # Dependency directories
 node_modules/
-<<<<<<< HEAD
 .wrangler
 .vite
-=======
-.wrangler
->>>>>>> main
