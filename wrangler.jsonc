@@ -18,7 +18,11 @@
   ],
   "observability": {
     "logs": {
+<<<<<<< HEAD
       "enabled": true,
+=======
+      "enabled": false,
+>>>>>>> main
       "invocation_logs": true
     }
   },
