@@ -12,7 +12,7 @@
   "name": "@curlmate/google-drive-remote-mcp",
   "private": true,
   "scripts": {
-    "start": "concurrently \"npx @modelcontextprotocol/inspector\" \"vite dev\" --kill-others",
+    "start": "concurrently \"vite dev\" --kill-others",
     "types": "wrangler types env.d.ts --include-runtime false"
   },
   "type": "module"
