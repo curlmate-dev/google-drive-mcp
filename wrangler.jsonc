@@ -1,0 +1,26 @@
+{
+  "compatibility_date": "2025-03-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "GoogleDriveMCP",
+        "name": "GoogleDriveMCP"
+      }
+    ]
+  },
+  "main": "src/server.ts",
+  "migrations": [
+    {
+      "new_sqlite_classes": ["GoogleDriveMCP"],
+      "tag": "v1"
+    }
+  ],
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
+  "name": "google-drive-mcp"
+}
