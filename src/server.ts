@@ -9,6 +9,25 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
     version: "0.0.1",
   });
 
+  fetchAccessToken = async({q, requestInfo}: {q: string | undefined, requestInfo: Record<string, string>}) => {
+    const response = await fetch("https://curlmate.dev/api/token", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${requestInfo?.headers["access-token"]}`,
+        "x-connection": requestInfo?.headers["x-connection"]
+      }
+    })
+
+    if (!response.ok) {
+      return {
+        error: await response.text()
+      }
+    }
+
+    return await response.json()
+  }
+
+
   async init() {
     // this.server.registerTool(
     //   "get-notion-page-format",
@@ -99,10 +118,11 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
       async ({ q }, { requestInfo }) => {
         const params = new URLSearchParams();
         params.set("q", q)
+        const res = await this.fetchAccessToken({q, requestInfo})
         const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${requestInfo?.headers["access-token"]}`,
+            "Authorization": `Bearer ${res.accessToken}`,
             "Content-Type": "application/json",
           }
         })
@@ -210,10 +230,11 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
         inputSchema: { }
       },
       async ({}, {requestInfo}) => {
+        const res = await this.fetchAccessToken({requestInfo})
         const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
           method: "GET",
           headers: {
-            "Authorization": `Bearer ${requestInfo?.headers["access-token"]}`,
+            "Authorization": `Bearer ${res.accessToken}`,
             "Content-Type": "application/json",
           }
         })
