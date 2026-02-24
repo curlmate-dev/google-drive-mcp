@@ -2,6 +2,45 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
 import { z } from "zod";
 
+const CURLMATE_BASE_URL = "https://api.curlmate.dev";
+
+const zAccessTokenResponse = z.object({
+  accessToken: z.string()
+})
+
+const getAccessToken = async({jwt, connection}: {jwt: string | undefined, connection: string | undefined}) : Promise<{accessToken: string} | { error: string, status: number }> => {
+  if (!jwt) {
+    return {
+      error: "Missing JWT token in Authorization header",
+      status: 401
+    }
+  }
+  if (!connection) {
+    return {
+      error: "Missing x-connection header",
+      status: 400
+    }
+  }
+  const response = await fetch(`${CURLMATE_BASE_URL}/token`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${jwt}`,
+      "x-connection": connection
+    }
+  })
+
+  if (!response.ok) {
+    return {
+      error: await response.text(),
+      status: response.status
+    }
+  }
+
+  const data = zAccessTokenResponse.parse(await response.json());
+  return {
+    accessToken: data.accessToken
+  }
+}
 
 export class GoogleDriveMCP extends McpAgent<Env, {}> {
   server = new McpServer({
@@ -9,106 +48,7 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
     version: "0.0.1",
   });
 
-  fetchAccessToken = async({q, requestInfo}: {q: string | undefined, requestInfo: Record<string, string>}) => {
-    const response = await fetch("https://curlmate.dev/api/token", {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${requestInfo?.headers["access-token"]}`,
-        "x-connection": requestInfo?.headers["x-connection"]
-      }
-    })
-
-    if (!response.ok) {
-      return {
-        error: await response.text()
-      }
-    }
-
-    return await response.json()
-  }
-
-
   async init() {
-    // this.server.registerTool(
-    //   "get-notion-page-format",
-    //   {
-    //     description: "get the sample page format",
-    //     inputSchema: { }
-    //   },
-    //   async ({  }) => {
-
-    //     return {
-    //       content: [
-    //         {
-    //           text: JSON.stringify({
-    //             "parent": {
-    //               "data_source_id": "d9824bdc84454327be8b5b47500af6ce"
-    //             },
-    //             "icon": {
-    //               "emoji": "🥬"
-    //             },
-    //             "cover": {
-    //               "external": {
-    //                 "url": "https://upload.wikimedia.org/wikipedia/commons/6/62/Tuscankale.jpg"
-    //               }
-    //             },
-    //             "properties": {
-    //               "Name": {
-    //                 "title": [
-    //                   {
-    //                     "text": {
-    //                       "content": "Tuscan Kale"
-    //                     }
-    //                   }
-    //                 ]
-    //               },
-    //               "Description": {
-    //                 "rich_text": [
-    //                   {
-    //                     "text": {
-    //                       "content": "A dark green leafy vegetable"
-    //                     }
-    //                   }
-    //                 ]
-    //               },
-    //               "Food group": {
-    //                 "select": {
-    //                   "name": "Vegetable"
-    //                 }
-    //               },
-    //               "Price": { "number": 2.5 }
-    //             },
-    //             "children": [
-    //               {
-    //                 "object": "block",
-    //                 "type": "heading_2",
-    //                 "heading_2": {
-    //                   "rich_text": [{ "type": "text", "text": { "content": "Lacinato kale" } }]
-    //                 }
-    //               },
-    //               {
-    //                 "object": "block",
-    //                 "type": "paragraph",
-    //                 "paragraph": {
-    //                   "rich_text": [
-    //                     {
-    //                       "type": "text",
-    //                       "text": {
-    //                         "content": "Lacinato kale is a variety of kale with a long tradition in Italian cuisine, especially that of Tuscany. It is also known as Tuscan kale, Italian kale, dinosaur kale, kale, flat back kale, palm tree kale, or black Tuscan palm.",
-    //                         "link": { "url": "https://en.wikipedia.org/wiki/Lacinato_kale" }
-    //                       }
-    //                     }
-    //                   ]
-    //                 }
-    //               }
-    //             ]
-    //           }),
-    //           type: "text"
-    //         }
-    //       ]
-    //     };
-    //   }
-    // );
     this.server.registerTool(
       "List-All-Files",
       {
@@ -118,7 +58,21 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
       async ({ q }, { requestInfo }) => {
         const params = new URLSearchParams();
         params.set("q", q)
-        const res = await this.fetchAccessToken({q, requestInfo})
+
+        const jwt = requestInfo?.headers["access-token"] as string
+        const connection = requestInfo?.headers["x-connection"] as string | undefined;
+        const res = await getAccessToken({jwt, connection});
+
+        if ("error" in res) {
+          return {
+            content: [
+              {
+                text: JSON.stringify(res),
+                type: "text"
+              }
+            ]
+          }
+        }
         const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, {
           method: "GET",
           headers: {
@@ -148,81 +102,7 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
         };
       }
     );
-    // this.server.registerTool(
-    //   "create-notion-page",
-    //   {
-    //     description: "this tool lists all notion pages",
-    //     inputSchema: {  pageData: z.string()}
-    //   },
-    //   async ({  pageData }, { requestInfo }) => {
-    //     const response = await fetch("https://api.notion.com/v1/pages", {
-    //       method: "POST",
-    //       headers: {
-    //         "Authorization": `Bearer ${requestInfo?.headers["access-token"]}`,
-    //         "Content-Type": "application/json",
-    //         "Notion-Version": "2022-06-28"
-    //       },
-    //       body: pageData
-    //     })
 
-    //     if (!response.ok) {
-    //       return {
-    //         content: [
-    //           {
-    //             text: JSON.stringify(await response.text()),
-    //             type: "text"
-    //           }
-    //         ]
-    //       }
-    //     }
-
-    //     return {
-    //       content: [
-    //         {
-    //           text: JSON.stringify(await response.json()),
-    //           type: "text"
-    //         }
-    //       ]
-    //     };
-    //   }
-    // );
-    // this.server.registerTool(
-    //   "fetch-notion-page",
-    //   {
-    //     description: "this tool fetches a notion page",
-    //     inputSchema: { pageId: z.string()}
-    //   },
-    //   async ({ pageId }, { requestInfo }) => {
-    //     const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-    //       method: "GET",
-    //       headers: {
-    //         "Authorization": `Bearer ${requestInfo?.headers["access-token"]}`,
-    //         "Content-Type": "application/json",
-    //         "Notion-Version": "2022-06-28"
-    //       }
-    //     })
-
-    //     if (!response.ok) {
-    //       return {
-    //         content: [
-    //           {
-    //             text: JSON.stringify(await response.text()),
-    //             type: "text"
-    //           }
-    //         ]
-    //       }
-    //     }
-
-    //     return {
-    //       content: [
-    //         {
-    //           text: JSON.stringify(await response.json()),
-    //           type: "text"
-    //         }
-    //       ]
-    //     };
-    //   }
-    // );
     this.server.registerTool(
       "authenticated-user",
       {
@@ -230,7 +110,21 @@ export class GoogleDriveMCP extends McpAgent<Env, {}> {
         inputSchema: { }
       },
       async ({}, {requestInfo}) => {
-        const res = await this.fetchAccessToken({requestInfo})
+        const jwt = requestInfo?.headers["access-token"] as string
+        const connection = requestInfo?.headers["x-connection"] as string | undefined;
+        const res = await getAccessToken({jwt, connection});
+
+        if ("error" in res) {
+          return {
+            content: [
+              {
+                text: JSON.stringify(res),
+                type: "text"
+              }
+            ]
+          }
+        }
+
         const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
           method: "GET",
           headers: {
